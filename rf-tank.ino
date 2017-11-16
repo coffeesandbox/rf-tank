@@ -1,7 +1,9 @@
-#include <Servo.h>
-#include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+#include <RF24_config.h>
+#include <printf.h>
+
+#include <Servo.h>
 
 RF24 radio(7, 8); // CE, CSN
 Servo escRight, escLeft;
@@ -12,42 +14,45 @@ const uint64_t pipes[2] = {
 const int escRightPin = 9;
 const int escLeftPin = 10;
 
+typedef struct stateUpdate {
+  int controlBit = 0;
+  int motorLeft;
+  int motorRight;
+} StateUpdate;
+
+StateUpdate stateUpdate;
+
 void setup() {
-  // init radio pins
+  // Initialize serial communication
   Serial.begin(57600);
-  Serial.println("INIT");
+  Serial.println("System Initializing");
+  printf_begin();
+
+  // Initialize radio module
   radio.begin();
   radio.setRetries(15,15);
   radio.openReadingPipe(0,pipes[0]);
   radio.startListening();
   radio.printDetails();  
-  // init esc motor pins
-  // escRight.attach(escRightPin); //ESC Pin
-  // escRight.write(86);
-  // escLeft.attach(escLeftPin); //ESC Pin
-  // escLeft.write(86);
+  
+  // Initialize ESC motors
+  escRight.attach(escRightPin); //ESC Pin
+  escRight.write(86);
+  escLeft.attach(escLeftPin); //ESC Pin
+  escLeft.write(86);
 }
 
 void loop() {
-  /**
-   * Example radio read
-   */
-
-  char data[12];   
-  radio.read(&data, sizeof(data)); 
-  Serial.print("Received: "); Serial.println(data);
+  if (!radio.available())
+    return;
+    
+  radio.read(&stateUpdate, sizeof(stateUpdate)); 
+  printf("State update: Left [%d], Right [%d] \n", stateUpdate.motorLeft, stateUpdate.motorRight);
   
   /*
-   * Example esc write
+   * Example esc writes
    */
-  
-   /* 
-    delay(1000);
-    escRight.write(70);
-    escLeft.write(70);
-    delay(5000);
-    escRight.write(65);
-    escLeft.write(65);
-    delay(2000);
-  */
+
+  escRight.write(stateUpdate.motorRight);
+  escLeft.write(stateUpdate.motorLeft);
 }
